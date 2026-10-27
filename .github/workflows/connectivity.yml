@@ -1,0 +1,40 @@
+name: SDK and Wikimedia connectivity
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/connectivity.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real SDK and Wikimedia API
+        working-directory: ${{ runner.temp }}
+        env:
+          WIKIMEDIA_CONTACT: https://github.com/Unjuno/Wiki-spark-mcp/issues
+        run: |
+          npm init -y >/dev/null
+          npm install --ignore-scripts --no-fund @modelcontextprotocol/server@2.4.0 @modelcontextprotocol/client@2.4.0 zod@^4.0.0
+          node --input-type=module <<'JS'
+          import { McpServer } from '@modelcontextprotocol/server';
+          import { serveStdio } from '@modelcontextprotocol/server/stdio';
+          const handle = serveStdio(() => new McpServer({ name: 'probe', version: '0.0.0' }));
+          console.error(JSON.stringify({ node: process.version, platform: process.platform, handleType: typeof handle, catchType: typeof handle.catch, closeType: typeof handle.close }));
+          await handle.close();
+          for (const [lang, title] of [['en', 'Earth'], ['ja', '地球']]) {
+            const url = new URL(`https://${lang}.wikipedia.org/w/api.php`);
+            url.search = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', prop: 'extracts|info', titles: title, exintro: '1', explaintext: '1', exchars: '1100' });
+            const response = await fetch(url, { headers: { 'User-Agent': `WikiSparkMCP/0.3.0 (${process.env.WIKIMEDIA_CONTACT})` }, signal: AbortSignal.timeout(15000) });
+            if (!response.ok) throw new Error(`Wikipedia ${lang}: HTTP ${response.status}`);
+            const payload = await response.json();
+            if (payload.error) throw new Error(JSON.stringify(payload.error));
+            const page = payload.query?.pages?.[0];
+            if (!page?.extract || !page?.lastrevid) throw new Error('Missing excerpt or revision');
+            console.error(JSON.stringify({ language: lang, status: response.status, title: page.title, revision: page.lastrevid, extract_length: page.extract.length }));
+          }
+          JS
