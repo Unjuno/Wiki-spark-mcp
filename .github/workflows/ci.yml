@@ -1,0 +1,59 @@
+name: MVP verification
+on:
+  push:
+    branches: [completion/mvp]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.lock.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: completion/mvp
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Generate the initial dependency lock
+        id: lock
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts --no-fund --no-audit
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -- package-lock.json
+            git commit -m 'build: lock verified MCP dependencies'
+            git push origin HEAD:completion/mvp
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  test:
+    needs: lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.lock.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-fund
+      - run: npm run check
+      - run: npm test
+      - run: npm audit --audit-level=high
+      - name: Live Wikipedia through the actual MCP transport
+        env:
+          WIKIMEDIA_CONTACT: https://github.com/Unjuno/Wiki-spark-mcp/issues
+        run: npm run test:live
+      - name: Print live evidence
+        if: always()
+        run: test ! -f verification/live-smoke.json || cat verification/live-smoke.json

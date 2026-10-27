@@ -1,0 +1,7 @@
+node_modules/
+.env
+.env.*
+*.log
+.superpowers/
+.DS_Store
+verification/live-smoke.json
