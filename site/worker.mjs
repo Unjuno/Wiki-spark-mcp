@@ -133,7 +133,9 @@ function validateToolInput(tool, args) {
   if (!['ja', 'en'].includes(language)) throw Object.assign(new Error('language_invalid'), { status: 400 });
   if (tool === 'wiki_search') {
     if (typeof args.query !== 'string' || !args.query.trim() || args.query.trim().length > 200) throw Object.assign(new Error('query_invalid'), { status: 400 });
-    return { query: args.query.trim(), language, limit: Number.isInteger(args.limit) ? Math.max(1, Math.min(10, args.limit)) : 5 };
+    const limit = args.limit ?? 5;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 10) throw Object.assign(new Error('limit_invalid'), { status: 400 });
+    return { query: args.query.trim(), language, limit };
   }
   if (tool === 'wiki_read') {
     if (typeof args.title !== 'string' || !args.title.trim() || args.title.trim().length > 200) throw Object.assign(new Error('title_invalid'), { status: 400 });

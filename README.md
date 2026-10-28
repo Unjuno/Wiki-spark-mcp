@@ -103,6 +103,12 @@ Workerは既存の `WikipediaAPI` と `buildWikiSkill` を使い、記事の抽�
 
 GitHub Actionsは依存関係を `package-lock.json` から導入し、Node.js 20・22・24で自動検査します。mainと開発ブランチのpushでは実API試験も実行し、失敗を成功扱いにしません。外部投稿者のPRでは実API試験を実行しません。実API試験の全出力は `verification/live-smoke.json` に保存され、CIログにも出ます。
 
+## WebMCP（対応ブラウザ）
+
+ブラウザに実験的な `document.modelContext.registerTool()` がある場合、トップレベルページへ `wiki_search`、`wiki_read`、`wiki_random`、`wiki_skill` の読み取り専用ツールを登録します。WebMCPツールはローカルstdio MCPへ直接接続せず、Playgroundと共通の同一オリジン・サインイン必須 `/api/tools` を呼びます。非対応ブラウザでもフォームとサンプル機能は使えます。
+
+`wiki_skill` は `task`、`language`、`count`、`mode`、`requirements`、`avoid` を受け取り、プロンプト、記事と出典、版情報、適用モード、完全取得か部分取得かを返します。Wikipedia本文は非信頼の参考資料です。WebMCPは実験仕様であり、ページで登録できても各ChatGPT Work/Codex環境から発見・実行できるとは限りません。
+
 `test/fixtures/fetch.mjs` はテスト専用であり、通常の起動では読み込まれません。過去の再現結果と現在の検証状態は [検証記録](docs/VERIFICATION.md) を参照してください。
 
 ## 安全性・制限

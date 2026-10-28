@@ -91,6 +91,7 @@ test('WebMCP search/read/random routes validate inputs and keep Wikipedia host c
   assert.equal((await random.json()).articles[0].revision_id, 54321);
   assert.equal((await call('wiki_skill', { task: 'x', language: 'en', count: 5, mode: 'analogy' })).status, 400);
   assert.equal((await call('wiki_skill', { task: 'x', language: 'en', count: 1, mode: 'analogy', unexpected: true })).status, 400);
+  assert.equal((await call('wiki_search', { query: 'feedback', language: 'en', limit: 11 })).status, 400);
 });
 
 const basicInput = (extra = {}) => ({
