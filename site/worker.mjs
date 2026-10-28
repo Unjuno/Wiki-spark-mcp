@@ -119,6 +119,62 @@ function validateInput(input) {
   };
 }
 
+function validateToolInput(tool, args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) throw Object.assign(new Error('arguments_invalid'), { status: 400 });
+  const allowed = {
+    wiki_search: ['query', 'language', 'limit'],
+    wiki_read: ['title', 'language'],
+    wiki_random: ['language', 'count'],
+    wiki_skill: ['task', 'language', 'count', 'mode', 'requirements', 'avoid']
+  }[tool];
+  if (!allowed || Object.keys(args).some((key) => !allowed.includes(key))) throw Object.assign(new Error('arguments_invalid'), { status: 400 });
+  if (tool === 'wiki_skill') return validateInput({ ...args, task: args.task, language: args.language ?? 'ja', count: args.count ?? 3, mode: args.mode ?? 'surprise', requirements: args.requirements ?? [], avoid: args.avoid ?? [] });
+  const language = args.language ?? 'ja';
+  if (!['ja', 'en'].includes(language)) throw Object.assign(new Error('language_invalid'), { status: 400 });
+  if (tool === 'wiki_search') {
+    if (typeof args.query !== 'string' || !args.query.trim() || args.query.trim().length > 200) throw Object.assign(new Error('query_invalid'), { status: 400 });
+    return { query: args.query.trim(), language, limit: Number.isInteger(args.limit) ? Math.max(1, Math.min(10, args.limit)) : 5 };
+  }
+  if (tool === 'wiki_read') {
+    if (typeof args.title !== 'string' || !args.title.trim() || args.title.trim().length > 200) throw Object.assign(new Error('title_invalid'), { status: 400 });
+    return { title: args.title.trim(), language };
+  }
+  if (tool === 'wiki_random') {
+    const count = args.count ?? 3;
+    if (!Number.isInteger(count) || count < 1 || count > 4) throw Object.assign(new Error('count_invalid'), { status: 400 });
+    return { language, count };
+  }
+  throw Object.assign(new Error('tool_not_found'), { status: 404 });
+}
+
+async function execute(tool, input, signal) {
+  wiki ||= new WikipediaAPI({ contact: CONTACT, timeoutMs: 9000, minIntervalMs: 150 });
+  if (tool === 'wiki_search') return { tool, live_wikipedia: true, ...await wiki.search(input.query, { language: input.language, limit: input.limit, signal }) };
+  if (tool === 'wiki_read') return { tool, live_wikipedia: true, article: await wiki.read(input.title, { language: input.language, signal }) };
+  const articles = await wiki.randomArticles({ language: input.language, count: input.count, signal });
+  const usable = articles.filter((article) => article.extract.length >= 60);
+  if (tool === 'wiki_random') return { tool, live_wikipedia: true, requested_count: input.count, returned_count: usable.length, complete: usable.length === input.count, articles: usable };
+  const mode = input.requestedMode === 'surprise' ? selectSkillMode() : input.requestedMode;
+  const skill = await buildWikiSkill({ task: input.task, articles: usable, mode, language: input.language, requirements: input.requirements, avoid: input.avoid });
+  return { ...skill, tool, requested_count: input.count, returned_count: usable.length, complete: usable.length === input.count, live_wikipedia: true };
+}
+
+async function authenticatedToolRequest(request, url, userId, toolName, args, env = {}) {
+  if (!userId) return json({ ok: false, error: { code: 'sign_in_required', message: 'Live Wikipediaにはサインインが必要です。', sign_in_url: '/signin-with-chatgpt?return_to=%2F%23playground' } }, 401);
+  if (activeUsers.has(userId)) return json({ ok: false, error: { code: 'USER_REQUEST_IN_PROGRESS', message: '取得処理が進行中です。' } }, 429, { 'retry-after': '5' });
+  if (activeRequests >= MAX_ACTIVE) return json({ ok: false, error: { code: 'SERVER_BUSY', message: 'ただいま利用が集中しています。' } }, 429, { 'retry-after': '15' });
+  let input;
+  try { input = validateToolInput(toolName, args); }
+  catch (error) { return errorResponse(error); }
+  const limit = rateLimit(request, userId);
+  if (!limit.allowed) return json({ ok: false, error: { code: 'rate_limit_exceeded', message: 'この時間帯の実行上限に達しました。' } }, 429, { 'retry-after': String(limit.retryAfter) });
+  activeUsers.add(userId);
+  activeRequests++;
+  try { return json({ ok: true, ...await execute(toolName, input, AbortSignal.timeout(45000), env) }); }
+  catch (error) { return errorResponse(error); }
+  finally { activeUsers.delete(userId); activeRequests--; }
+}
+
 function errorResponse(error) {
   const status = error.status || (error.name === 'TimeoutError' || error.name === 'AbortError' || /timed? ?out|aborted due to timeout/i.test(error.message) ? 504 : /rate limiting/i.test(error.message) ? 503 : 502);
   if (status === 400 || status === 413) return json({ error: { code: error.message, message: status === 413 ? '入力が大きすぎます。内容を短くしてください。' : '入力を確認してもう一度お試しください。' } }, status);
@@ -152,7 +208,7 @@ export default {
       return json({ authenticated: Boolean(userId) });
     }
 
-    if (url.pathname !== '/api/playground') return new Response('Not found', { status: 404 });
+    if (!['/api/playground', '/api/tools'].includes(url.pathname)) return new Response('Not found', { status: 404 });
     if (request.method !== 'POST') return json({ error: { code: 'method_not_allowed', message: 'Method not allowed.' } }, 405, { allow: 'POST' });
 
     const origin = request.headers.get('origin');
@@ -164,40 +220,21 @@ export default {
     }
 
     const userId = identity(request);
-    if (!userId) return json({ error: { code: 'sign_in_required', message: 'Live Wikipediaを使うにはChatGPTにサインインしてください。' } }, 401);
-    if (activeUsers.has(userId)) return json({ error: { code: 'user_request_in_progress', message: '取得処理が進行中です。完了後にもう一度お試しください。' } }, 429, { 'retry-after': '5' });
-    if (activeRequests >= MAX_ACTIVE) return json({ error: { code: 'server_busy', message: 'ただいま利用が集中しています。少し待って再試行してください。' } }, 429, { 'retry-after': '15' });
-
-    let input;
-    try { input = validateInput(await readBoundedJson(request)); }
+    let body;
+    try { body = await readBoundedJson(request); }
     catch (error) { return errorResponse(error); }
-
-    const limit = rateLimit(request, userId);
-    if (!limit.allowed) return json({ error: { code: 'rate_limit_exceeded', message: 'この時間帯の実行上限に達しました。時間をおいて再試行してください。' } }, 429, { 'retry-after': String(limit.retryAfter) });
-
-    activeUsers.add(userId);
-    activeRequests++;
-    try {
-      wiki ||= new WikipediaAPI({ contact: env.WIKIMEDIA_CONTACT || CONTACT, timeoutMs: 9000, minIntervalMs: 150 });
-      const mode = input.requestedMode === 'surprise' ? selectSkillMode() : input.requestedMode;
-      const signal = AbortSignal.timeout(45000);
-      const articles = await wiki.randomArticles({ language: input.language, count: input.count, signal });
-      const usable = articles.filter((article) => article.extract.length >= 60);
-      const skill = await buildWikiSkill({
-        task: input.task, articles: usable, mode, language: input.language,
-        requirements: input.requirements, avoid: input.avoid
-      });
-      return json({
-        ...skill,
-        requested_count: input.count,
-        returned_count: usable.length,
-        complete: usable.length === input.count,
-        live_wikipedia: true
-      });
-    } catch (error) { return errorResponse(error); }
-    finally {
-      activeUsers.delete(userId);
-      activeRequests--;
+    if (url.pathname === '/api/tools') {
+      if (typeof body.tool !== 'string' || !body.arguments || typeof body.arguments !== 'object' || Array.isArray(body.arguments)) return errorResponse(Object.assign(new Error('arguments_invalid'), { status: 400 }));
+      const response = await authenticatedToolRequest(request, url, userId, body.tool, body.arguments, env);
+      if (response.status === 200) { const payload = await response.json(); return json(payload); }
+      const payload = await response.json();
+      const toolCode = payload.error?.code === 'sign_in_required' ? 'AUTH_REQUIRED' : payload.error?.code === 'rate_limit_exceeded' ? 'RATE_LIMIT_EXCEEDED' : payload.error?.code?.toUpperCase() || 'TOOL_ERROR';
+      return json({ ok: false, error: { code: toolCode, message: payload.error?.message || 'Tool execution failed.', ...(payload.error?.sign_in_url ? { sign_in_url: payload.error.sign_in_url } : {}) } }, response.status, Object.fromEntries(response.headers));
     }
+    const { task, language, count, mode, requirements, avoid } = body;
+    const response = await authenticatedToolRequest(request, url, userId, 'wiki_skill', { task, language, count, mode, requirements, avoid }, env);
+    if (response.status !== 200) return response;
+    const payload = await response.json();
+    return json(payload);
   }
 };
