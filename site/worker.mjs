@@ -149,8 +149,8 @@ function validateToolInput(tool, args) {
   throw Object.assign(new Error('tool_not_found'), { status: 404 });
 }
 
-async function execute(tool, input, signal) {
-  wiki ||= new WikipediaAPI({ contact: CONTACT, timeoutMs: 9000, minIntervalMs: 150 });
+async function execute(tool, input, signal, env = {}) {
+  wiki ||= new WikipediaAPI({ contact: env.WIKIMEDIA_CONTACT || CONTACT, timeoutMs: 9000, minIntervalMs: 150 });
   if (tool === 'wiki_search') return { tool, live_wikipedia: true, ...await wiki.search(input.query, { language: input.language, limit: input.limit, signal }) };
   if (tool === 'wiki_read') return { tool, live_wikipedia: true, article: await wiki.read(input.title, { language: input.language, signal }) };
   const articles = await wiki.randomArticles({ language: input.language, count: input.count, signal });
