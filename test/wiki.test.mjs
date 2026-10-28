@@ -163,9 +163,9 @@ test('random sampling enforces count bounds', async () => {
   await assert.rejects(api.randomArticles({ count: 5 }), /Random count/);
 });
 
-test('wiki_skill separates sourced facts and hypotheses and uses safe URLs', () => {
+test('wiki_skill separates sourced facts and hypotheses and uses safe URLs', async () => {
   const source = { ...fakeSource(), url: 'https://evil.example/steal' };
-  const skill = buildWikiSkill({ task: 'LPの改善', articles: [source], mode: 'analogy' });
+  const skill = await buildWikiSkill({ task: 'LPの改善', articles: [source], mode: 'analogy' });
   assert.equal(skill.mode, 'analogy');
   assert.equal(skill.replay.titles[0], '地球');
   assert.match(skill.prompt, /仮説/);
@@ -175,8 +175,8 @@ test('wiki_skill separates sourced facts and hypotheses and uses safe URLs', () 
   assert.match(skill.snapshot_sha256, /^[0-9a-f]{64}$/);
 });
 
-test('wiki_skill supports explicit requirements and avoided changes', () => {
-  const skill = buildWikiSkill({
+test('wiki_skill supports explicit requirements and avoided changes', async () => {
+  const skill = await buildWikiSkill({
     task: 'ページ改善', articles: [fakeSource()], mode: 'constraint',
     requirements: ['WCAGを満たす', '購入ボタンは残す'], avoid: ['個人情報の収集']
   });
@@ -186,19 +186,19 @@ test('wiki_skill supports explicit requirements and avoided changes', () => {
   assert.deepEqual(skill.replay.requirements, ['WCAGを満たす', '購入ボタンは残す']);
 });
 
-test('wiki_skill fingerprint is deterministic for the same snapshot', () => {
+test('wiki_skill fingerprint is deterministic for the same snapshot', async () => {
   const data = { task: '変更', articles: [fakeSource()], mode: 'critique' };
-  const first = buildWikiSkill(data);
-  const second = buildWikiSkill(data);
+  const first = await buildWikiSkill(data);
+  const second = await buildWikiSkill(data);
   assert.equal(first.snapshot_sha256, second.snapshot_sha256);
-  assert.notEqual(first.snapshot_sha256, buildWikiSkill({ ...data, task: '別の変更' }).snapshot_sha256);
+  assert.notEqual(first.snapshot_sha256, (await buildWikiSkill({ ...data, task: '別の変更' })).snapshot_sha256);
 });
 
-test('wiki_skill rejects invalid rules and modes', () => {
+test('wiki_skill rejects invalid rules and modes', async () => {
   const base = { task: '変更', articles: [fakeSource()] };
-  assert.throws(() => buildWikiSkill({ ...base, mode: 'surprise' }), /Unknown skill mode/);
-  assert.throws(() => buildWikiSkill({ ...base, avoid: ['x'.repeat(201)] }), /avoid must be/);
-  assert.throws(() => buildWikiSkill({ ...base, requirements: Array(9).fill('x') }), /requirements must be/);
+  await assert.rejects(buildWikiSkill({ ...base, mode: 'surprise' }), /Unknown skill mode/);
+  await assert.rejects(buildWikiSkill({ ...base, avoid: ['x'.repeat(201)] }), /avoid must be/);
+  await assert.rejects(buildWikiSkill({ ...base, requirements: Array(9).fill('x') }), /requirements must be/);
 });
 
 test('mode generator returns only supported skills', () => {

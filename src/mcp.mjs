@@ -68,7 +68,7 @@ export function makeServer(wikipedia) {
       ? await wikipedia.readMany(titles, { language })
       : await wikipedia.randomArticles({ language, count });
     const usable = articles.filter((article) => article.extract.length >= 60);
-    const result = buildWikiSkill({ task, articles: usable, mode: selectedMode, language, requirements, avoid });
+    const result = await buildWikiSkill({ task, articles: usable, mode: selectedMode, language, requirements, avoid });
     return {
       ...result,
       requested_count: titles?.length ?? count,
