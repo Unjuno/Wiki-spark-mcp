@@ -7,6 +7,8 @@
   "engines": { "node": ">=20.11" },
   "scripts": {
     "start": "node src/server.mjs",
+    "dev": "node site/dev-server.mjs",
+    "site:build": "node site/build.mjs",
     "check": "node scripts/check.mjs",
     "test:unit": "node --test test/wiki.test.mjs test/hardening.test.mjs",
     "test:protocol": "node --test test/mcp.test.mjs",

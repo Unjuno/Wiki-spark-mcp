@@ -1,4 +1,3 @@
-import { createHash, randomInt } from 'node:crypto';
 import { WikiHttp } from './http.mjs';
 import { VERSION } from './version.mjs';
 
@@ -169,7 +168,7 @@ function normalizeRules(value, field) {
   return value.map((rule) => rule.trim().replace(/[\r\n]+/g, ' '));
 }
 
-export function buildWikiSkill({ task, articles, mode = 'analogy', language = 'ja', requirements = [], avoid = [] }) {
+export async function buildWikiSkill({ task, articles, mode = 'analogy', language = 'ja', requirements = [], avoid = [] }) {
   if (typeof task !== 'string' || !task.trim() || task.length > 1200) {
     throw new Error('Task must contain 1..1200 characters.');
   }
@@ -199,7 +198,8 @@ export function buildWikiSkill({ task, articles, mode = 'analogy', language = 'j
   });
   const taskText = task.trim();
   const digestInput = { version: VERSION, task: taskText, language, mode, requirements: kept, avoid: excluded, sources: safeArticles };
-  const snapshotSha256 = createHash('sha256').update(JSON.stringify(digestInput)).digest('hex');
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(digestInput)));
+  const snapshotSha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
   const skillPrompt = [
     `# 一時スキル: ${method.name}`,
     `対象課題: ${taskText}`,
@@ -230,5 +230,13 @@ export function buildWikiSkill({ task, articles, mode = 'analogy', language = 'j
 }
 
 export function selectSkillMode() {
-  return SKILL_MODES[randomInt(SKILL_MODES.length)];
+  const max = 2 ** 32;
+  const bound = Math.floor(max / SKILL_MODES.length) * SKILL_MODES.length;
+  let value;
+  do {
+    const bytes = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(bytes);
+    value = bytes[0];
+  } while (value >= bound);
+  return SKILL_MODES[value % SKILL_MODES.length];
 }

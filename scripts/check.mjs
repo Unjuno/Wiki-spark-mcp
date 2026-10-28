@@ -10,5 +10,5 @@ const scan = async (dir) => {
     }
   }
 };
-for (const dir of ['src', 'test', 'scripts']) await scan(dir);
+for (const dir of ['src', 'test', 'scripts', 'site']) await scan(dir);
 console.log('Syntax checks passed.');

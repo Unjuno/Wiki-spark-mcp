@@ -60,7 +60,7 @@ node src/server.mjs
 }
 ```
 
-クライアントのPATHにNode.jsがない場合、`command` も実行ファイルの絶対パスにします。WindowsのJSONパスでは `C:/path/...` のようにスラッシュを使えます。**この版はローカルstdio専用です。公開HTTPSエンドポイントやChatGPTへの接続設定は作成していません。**
+クライアントのPATHにNode.jsがない場合、`command` も実行ファイルの絶対パスにします。WindowsのJSONパスでは `C:/path/...` のようにスラッシュを使えます。**MCPサーバー本体はローカルstdio専用で、MCPの公開HTTPSエンドポイントやChatGPT接続設定はありません。** 公式サイトのPlaygroundは別の限定APIです。
 
 ## 使用例
 
@@ -93,7 +93,21 @@ node src/server.mjs
 | `npm test` | 単体検査と旧・新プロトコルの接続検査 |
 | `npm run test:live` | 実SDK → 実サーバー → 実Wikipedia。4ツール×2言語 |
 
+## 公式サイト Playground
+
+[公式サイト](https://wikispark-official.unjuno.chatgpt.site)には実Wikipedia連携のPlaygroundがあります。MCPサーバー本体は引き続きローカルstdio専用で、PlaygroundはSites Worker上の別APIです。実通信にはChatGPTサインインが必要です。未サインインでも明示的なサンプルデータの操作はできます。課題文は一時スキルに含めるためサイトAPIへ送信されますが、Wikipediaへは送信されません。秘密情報・個人情報を入力しないでください。
+
+Workerは既存の `WikipediaAPI` と `buildWikiSkill` を使い、記事の抽出・制約・出典構造をMCPと共有します。最大記事数、本文サイズ、タイムアウト、認証、同一オリジン、同時実行、利用回数を制限しています。利用回数のカウンターはWorkerごとのメモリ内にあるため、スケールアウトをまたぐ永続的・厳密な上限ではありません。完全な分散レート制限には永続バインディングが必要です。
+
+`npm run site:build` は既存ページをWorker配信用にまとめます。公開Workerは `.openai/hosting.json` と `dist/server/index.js` を必要とします。
+
 GitHub Actionsは依存関係を `package-lock.json` から導入し、Node.js 20・22・24で自動検査します。mainと開発ブランチのpushでは実API試験も実行し、失敗を成功扱いにしません。外部投稿者のPRでは実API試験を実行しません。実API試験の全出力は `verification/live-smoke.json` に保存され、CIログにも出ます。
+
+## WebMCP（対応ブラウザ）
+
+ブラウザに実験的な `document.modelContext.registerTool()` がある場合、トップレベルページへ `wiki_search`、`wiki_read`、`wiki_random`、`wiki_skill` の読み取り専用ツールを登録します。WebMCPツールはローカルstdio MCPへ直接接続せず、Playgroundと共通の同一オリジン・サインイン必須 `/api/tools` を呼びます。非対応ブラウザでもフォームとサンプル機能は使えます。
+
+`wiki_skill` は `task`、`language`、`count`、`mode`、`requirements`、`avoid` を受け取り、プロンプト、記事と出典、版情報、適用モード、完全取得か部分取得かを返します。Wikipedia本文は非信頼の参考資料です。WebMCPは実験仕様であり、ページで登録できても各ChatGPT Work/Codex環境から発見・実行できるとは限りません。
 
 `test/fixtures/fetch.mjs` はテスト専用であり、通常の起動では読み込まれません。過去の再現結果と現在の検証状態は [検証記録](docs/VERIFICATION.md) を参照してください。
 
