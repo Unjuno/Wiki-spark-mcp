@@ -7,7 +7,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { VERSION } from '../src/version.mjs';
 const serverPath = fileURLToPath(new URL('../src/server.mjs', import.meta.url));
 const preload = fileURLToPath(new URL('./fixtures/fetch.mjs', import.meta.url));
-const expectedTools = ['wiki_random', 'wiki_read', 'wiki_search', 'wiki_skill'];
+const expectedTools = ['wiki_discover', 'wiki_random', 'wiki_read', 'wiki_search', 'wiki_skill'];
 
 for (const era of ['legacy', 'modern']) {
   test(`real stdio SDK transport: ${era}`, { timeout: 45000 }, async (t) => {
@@ -26,7 +26,7 @@ for (const era of ['legacy', 'modern']) {
       assert.deepEqual(result.structuredContent, JSON.parse(result.content[0].text));
       return result.structuredContent;
     };
-    await t.test('four discoverable, annotated read-only tools', async () => {
+    await t.test('five discoverable, annotated read-only tools', async () => {
       const { tools } = await client.listTools();
       assert.deepEqual(tools.map((tool) => tool.name).sort(), expectedTools);
       assert.ok(tools.every((tool) => tool.annotations?.readOnlyHint === true));
@@ -40,6 +40,22 @@ for (const era of ['legacy', 'modern']) {
         assert.ok(read.url.startsWith(`https://${language}.wikipedia.org/`));
       });
     }
+    await t.test('wiki_discover returns a random article with a separate AI explanation handoff', async () => {
+      const result = await call('wiki_discover', {});
+      assert.equal(result.kind, 'wikipedia_article_discovery');
+      assert.equal(result.language, 'ja');
+      assert.equal(result.article.source, 'Wikipedia');
+      assert.ok(result.article.extract.length >= 60);
+      assert.equal(result.explanation_status, 'requires_client_ai');
+      assert.ok(result.explanation_prompt.includes('article.extract'));
+      assert.ok(!result.explanation_prompt.includes('Synthetic test data'));
+      assert.match(result.snapshot_sha256, /^[a-f0-9]{64}$/);
+    });
+    await t.test('wiki_discover supports English', async () => {
+      const result = await call('wiki_discover', { language: 'en' });
+      assert.match(result.article.url, /^https:\/\/en\.wikipedia\.org\/wiki\//);
+      assert.match(result.explanation_prompt, /Explain the article/);
+    });
     await t.test('random default count and uniqueness', async () => {
       const result = await call('wiki_random', {});
       assert.equal(result.returned_count, 3);

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 — 2026-10-30
+
+- Add no-argument wiki_discover for one random Wikipedia article with provenance and a fixed client-AI explanation handoff.
+- Keep external article text out of instructions and mark the explanation as not yet generated.
+- Preserve existing four tools and add unit, stdio, and live regression checks.
+- Document requirements for updating the separately hosted public website.
+
+
 ## 0.3.0 — 2026-10-28
 
 - Correct the SDK v2 stdio lifecycle: `serveStdio` returns a handle, not a Promise.

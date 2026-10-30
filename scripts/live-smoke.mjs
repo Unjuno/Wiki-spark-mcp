@@ -12,12 +12,13 @@ try {
   await client.connect(new StdioClientTransport({ command: process.execPath,
     args: [fileURLToPath(new URL('../src/server.mjs', import.meta.url))], env: { ...process.env }, stderr: 'inherit' }));
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 4);
+  assert.equal(tools.length, 5);
   for (const [language, title] of [['ja', '地球'], ['en', 'Earth']]) {
     const cases = [
       ['wiki_search', { query: title, language, limit: 1 }],
       ['wiki_read', { title, language }],
       ['wiki_random', { language, count: 1 }],
+      ['wiki_discover', { language }],
       ['wiki_skill', { task: 'Improve navigation while preserving required actions', language, count: 1, mode: 'analogy', requirements: ['Preserve required actions'] }]
     ];
     for (const [name, args] of cases) {
@@ -27,7 +28,11 @@ try {
       assert.ok(data && typeof data === 'object');
       if (name === 'wiki_search') assert.ok(data.results.length > 0);
       else if (name === 'wiki_read') assert.ok(data.extract.length > 0 && data.revision_id > 0);
-      else { assert.equal(data.complete, true); assert.equal(data.returned_count, 1); }
+      else if (name === 'wiki_discover') {
+        assert.equal(data.kind, 'wikipedia_article_discovery');
+        assert.ok(data.article.extract.length >= 60);
+        assert.equal(data.explanation_status, 'requires_client_ai');
+      } else { assert.equal(data.complete, true); assert.equal(data.returned_count, 1); }
       report.results.push({ name, language, status: 'PASS', data });
       console.log(`PASS ${name} ${language}`);
     }

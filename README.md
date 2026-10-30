@@ -1,13 +1,14 @@
-# WikiSpark MCP — v0.3.0
+# WikiSpark MCP — v0.4.0
 
-Wikipediaの異分野知識を、AIが使う**一時的な思考スキル**として返すローカルMCPサーバーです。
+**Wikipediaでランダムな記事を発見して接続先AIに解説してもらう**ローカルMCPサーバーです。対象はWikipediaだけで、一般Webサイトは巡回しません。
 
-検索だけでなく、「このサイトを改善する」という課題にランダムな記事と検証手順を組み合わせ、いつもと違う視点を渡します。**サーバー自身がLLMで推論するわけではありません。** 原理の抽出・転用・評価は接続先のAIが行います。
+`wiki_discover({})` は日本語Wikipediaからランダムに1記事を取得します。記事のURL・版情報・抜粋を返し、接続先のAI向けの解説手順を付けます。解説そのものはMCP単体では生成されません。従来の `wiki_skill` は任意の発想支援機能として残します。**サーバー自身がLLMで推論するわけではありません。** 原理の抽出・転用・評価は接続先のAIが行います。
 
 ## 範囲
 
 | ツール | 主な入力 | 戻り値 |
 |---|---|---|
+| **`wiki_discover`** | `language`（省略可） | ランダム記事1件、URL・版情報・AI向け解説手順（AI解説は未生成） |
 | `wiki_search` | `query`, `language`, `limit` | 検索結果・短い抜粋・出典URL |
 | `wiki_read` | `title`, `language` | 導入部・記事ID・リビジョン情報 |
 | `wiki_random` | `language`, `count` | 全分野からのランダム記事、取得件数と充足状況 |
@@ -18,6 +19,16 @@ Wikipediaの異分野知識を、AIが使う**一時的な思考スキル**と�
 ランダム開始点を記事ごとに取得しますが、**Wikipedia全記事からの厳密な一様抽出や分野の均等配分は保証しません**。二巡までの有限の試行で不足すれば `complete: false`、利用可能な記事がゼロならツールエラーです。無制限に再抽選しません。
 
 `mode` は `analogy`（類推）、`constraint`（制約）、`critique`（批評）。既定の `surprise` はこの3種類から1つ選びます。`wiki_skill` に `titles` を1〜4件指定するとランダム選択に代わって指定記事を取得します。
+
+## まず使ってみる
+
+MCPクライアントに登録したら次のように依頼します。
+
+> wiki_discoverを引数なしで呼び出し、articleとexplanation_promptを参考に初心者向けに説明してください。記事の事実と推測を分離し、WikipediaのURLと版情報を示してください。「次の記事」と言ったら再びwiki_discoverを呼び出してください。
+
+返却される `explanation_status: requires_client_ai` は、**説明文がまだ生成されていない**という意味です。記事本文は指示と分離された非信頼データです。新しい抽選で同じ記事が再び出ることもあります。
+
+公開サイトはGitHubとは別管理のため、この更新で自動的に公開サイトが変わるわけではありません。サイト側の変更要件は [記事発見サイト統合ガイド](docs/SITE_DISCOVERY.md) を参照してください。
 
 ## 導入
 
@@ -91,7 +102,7 @@ node src/server.mjs
 | `npm run test:unit` | 通信境界・抽出・スキル構築。外部HTTPは模擬応答 |
 | `npm run test:protocol` | 実SDK・別プロセス・実stdio。WikipediaのHTTPだけを模擬化 |
 | `npm test` | 単体検査と旧・新プロトコルの接続検査 |
-| `npm run test:live` | 実SDK → 実サーバー → 実Wikipedia。4ツール×2言語 |
+| `npm run test:live` | 実SDK → 実サーバー → 実Wikipedia。5ツール×2言語 |
 
 GitHub Actionsは依存関係を `package-lock.json` から導入し、Node.js 20・22・24で自動検査します。mainと開発ブランチのpushでは実API試験も実行し、失敗を成功扱いにしません。外部投稿者のPRでは実API試験を実行しません。実API試験の全出力は `verification/live-smoke.json` に保存され、CIログにも出ます。
 
