@@ -2,6 +2,8 @@
 
 ## 0.4.0 — 2026-10-30
 
+- Fix intermittent live-test failures when initial random articles have short excerpts; bounded retries now allow up to max(6, 4×count) starts.
+
 - Add no-argument wiki_discover for one random Wikipedia article with provenance and a fixed client-AI explanation handoff.
 - Keep external article text out of instructions and mark the explanation as not yet generated.
 - Preserve existing four tools and add unit, stdio, and live regression checks.

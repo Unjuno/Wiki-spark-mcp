@@ -132,6 +132,24 @@ test('random sampling retries empty extracts with a bounded second round', async
   assert.equal(index, 3);
 });
 
+test('random discovery continues after four short article extracts without unbounded calls', async () => {
+  let starts = 0;
+  const api = mockAPI(async (url) => {
+    const params = new URL(url).searchParams;
+    if (params.get('list') === 'random') return mockResponse({ query: { random: [{ title: `題材${starts++}` }] } });
+    const pages = params.get('titles').split('|').map((title) => {
+      const result = page(title);
+      if (Number(title.replace('題材', '')) < 4) result.extract = '短い';
+      return result;
+    });
+    return mockResponse({ query: { pages } });
+  });
+  const articles = await api.randomArticles({ count: 1 });
+  assert.equal(articles.length, 1);
+  assert.equal(articles[0].title, '題材4');
+  assert.ok(starts <= 6, `bounded retries: ${starts}`);
+});
+
 test('random sampling is bounded for repeated identical titles', async () => {
   let calls = 0;
   const api = mockAPI(async (url) => {
