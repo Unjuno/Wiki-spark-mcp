@@ -108,13 +108,16 @@ export class WikipediaAPI {
     const seen = new Set();
     const usable = [];
 
-    // MediaWiki list=random returns an adjacent sequence after one random start.
-    // Request rnlimit=1 separately to obtain independent random starts instead.
-    // At most two rounds and <= 4*count random requests; execute sequentially.
-    for (let round = 0; round < 2 && usable.length < count; round++) {
+    // Every rnlimit=1 request starts at a new random point. Some valid pages
+    // have empty/very short introductions, so two rounds can fail by chance.
+    // Keep a global budget: <= max(6, 4*count) independent starts per call.
+    const maxDraws = Math.max(6, count * 4);
+    let draws = 0;
+    for (let round = 0; round < maxDraws && usable.length < count && draws < maxDraws; round++) {
       const needed = count - usable.length;
       const titles = [];
-      for (let tries = 0; tries < needed * 2 && titles.length < needed; tries++) {
+      for (let tries = 0; tries < needed * 2 && titles.length < needed && draws < maxDraws; tries++) {
+        draws++;
         const data = await this.request(language, {
           list: 'random', rnnamespace: 0, rnfilterredir: 'nonredirects',
           rnminsize: 400, rnlimit: 1
