@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/server';
+import { buildArticleDiscovery } from './discovery.mjs';
 import * as z from 'zod/v4';
 import { buildWikiSkill, selectSkillMode, SKILL_MODES } from './wiki.mjs';
 import { VERSION } from './version.mjs';
@@ -48,6 +49,15 @@ export function makeServer(wikipedia) {
   }, safe(async ({ language, count }) => {
     const articles = await wikipedia.randomArticles({ language, count });
     return { language, requested_count: count, returned_count: articles.length, complete: articles.length === count, articles };
+  }));
+
+  server.registerTool('wiki_discover', {
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+    description: '日本語または英語Wikipediaから記事をランダムに1件発見し、URL・版情報と接続先AIが解説するための指示を返す。引数なしで実行可能。',
+    inputSchema: z.object({ language: Lang })
+  }, safe(async ({ language }) => {
+    const articles = await wikipedia.randomArticles({ language, count: 1 });
+    return buildArticleDiscovery(articles[0], { language });
   }));
 
   server.registerTool('wiki_skill', {
