@@ -1,6 +1,21 @@
-import { setTimeout as delay } from 'node:timers/promises';
 import { VERSION } from './version.mjs';
 const MAX_BYTES = 524288;
+
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 async function boundedJson(response, signal) {
   if (Number(response.headers.get('content-length')) > MAX_BYTES) {
@@ -24,14 +39,17 @@ async function boundedJson(response, signal) {
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  try { return JSON.parse(new TextDecoder().decode(bytes)); }
   catch { throw new Error('Wikipedia API returned an invalid JSON response.'); }
 }
 
 // One sequential queue per server. Only fixed Wikipedia hosts are allowed.
 export class WikiHttp {
   constructor({ contact, fetchImpl = globalThis.fetch, timeoutMs = 9000,
-    minIntervalMs = 150, now = Date.now, sleepImpl = (ms, signal) => delay(ms, undefined, { signal }) } = {}) {
+    minIntervalMs = 150, now = Date.now, sleepImpl = delay } = {}) {
     if (typeof contact !== 'string' || !contact.trim() || /[^\x20-\x7e]/.test(contact) || contact.length > 200) {
       throw new Error('Set WIKIMEDIA_CONTACT to your genuine contact URL or email address.');
     }
@@ -73,7 +91,7 @@ export class WikiHttp {
         this.nextAt = this.now() + this.minIntervalMs;
         response = await this.fetchImpl(url, {
           method: 'GET', redirect: 'error', signal,
-          headers: { Accept: 'application/json', 'User-Agent': `WikiSparkMCP/${VERSION} (${this.contact}) Node.js/${process.versions.node}` }
+          headers: { Accept: 'application/json', 'User-Agent': `WikiSparkMCP/${VERSION} (${this.contact})` }
         });
         if (response.redirected) throw new Error('Wikipedia redirects are not allowed.');
         if (response.ok) payload = await boundedJson(response, signal);
