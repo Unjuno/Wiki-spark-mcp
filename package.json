@@ -7,10 +7,12 @@
   "engines": { "node": ">=20.11" },
   "scripts": {
     "start": "node src/server.mjs",
+    "site:start": "node site/server.mjs",
+    "site:check": "node --test site/test/*.test.mjs",
     "check": "node scripts/check.mjs",
     "test:unit": "node --test test/wiki.test.mjs test/hardening.test.mjs",
     "test:protocol": "node --test test/mcp.test.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs site/test/*.test.mjs",
     "test:live": "node scripts/live-smoke.mjs"
   },
   "dependencies": { "@modelcontextprotocol/server": "2.4.0", "zod": "^4.2.0" },

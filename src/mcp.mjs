@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server';
-import { buildArticleDiscovery } from './discovery.mjs';
+import { createWikiOperations } from './operations.mjs';
 import * as z from 'zod/v4';
-import { buildWikiSkill, selectSkillMode, SKILL_MODES } from './wiki.mjs';
+import { SKILL_MODES } from './wiki.mjs';
 import { VERSION } from './version.mjs';
 
 const Lang = z.enum(['ja', 'en']).default('ja');
@@ -19,6 +19,7 @@ const safe = (handler) => async (args) => {
 
 export function makeServer(wikipedia) {
   const server = new McpServer({ name: 'wiki-spark', version: VERSION });
+  const operations = createWikiOperations(wikipedia);
 
   server.registerTool('wiki_search', {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -28,7 +29,7 @@ export function makeServer(wikipedia) {
       language: Lang,
       limit: z.number().int().min(1).max(10).default(5)
     })
-  }, safe(({ query, language, limit }) => wikipedia.search(query, { language, limit })));
+  }, safe((args) => operations.wiki_search(args)));
 
   server.registerTool('wiki_read', {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -37,7 +38,7 @@ export function makeServer(wikipedia) {
       title: z.string().trim().min(1).max(200),
       language: Lang
     })
-  }, safe(({ title, language }) => wikipedia.read(title, { language })));
+  }, safe((args) => operations.wiki_read(args)));
 
   server.registerTool('wiki_random', {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -46,19 +47,13 @@ export function makeServer(wikipedia) {
       language: Lang,
       count: z.number().int().min(1).max(4).default(3)
     })
-  }, safe(async ({ language, count }) => {
-    const articles = await wikipedia.randomArticles({ language, count });
-    return { language, requested_count: count, returned_count: articles.length, complete: articles.length === count, articles };
-  }));
+  }, safe((args) => operations.wiki_random(args)));
 
   server.registerTool('wiki_discover', {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     description: '日本語または英語Wikipediaから記事をランダムに1件発見し、URL・版情報と接続先AIが解説するための指示を返す。引数なしで実行可能。',
     inputSchema: z.object({ language: Lang })
-  }, safe(async ({ language }) => {
-    const articles = await wikipedia.randomArticles({ language, count: 1 });
-    return buildArticleDiscovery(articles[0], { language });
-  }));
+  }, safe((args) => operations.wiki_discover(args)));
 
   server.registerTool('wiki_skill', {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
@@ -72,20 +67,7 @@ export function makeServer(wikipedia) {
       requirements: Rules,
       avoid: Rules
     })
-  }, safe(async ({ task, language, count, mode, titles, requirements, avoid }) => {
-    const selectedMode = mode === 'surprise' ? selectSkillMode() : mode;
-    const articles = titles?.length
-      ? await wikipedia.readMany(titles, { language })
-      : await wikipedia.randomArticles({ language, count });
-    const usable = articles.filter((article) => article.extract.length >= 60);
-    const result = buildWikiSkill({ task, articles: usable, mode: selectedMode, language, requirements, avoid });
-    return {
-      ...result,
-      requested_count: titles?.length ?? count,
-      returned_count: usable.length,
-      complete: usable.length === (titles?.length ?? count)
-    };
-  }));
+  }, safe((args) => operations.wiki_skill(args)));
   return server;
 }
 

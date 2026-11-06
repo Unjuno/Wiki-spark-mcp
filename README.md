@@ -1,14 +1,18 @@
 # WikiSpark MCP — v0.4.0
 
-**Wikipediaでランダムな記事を発見して接続先AIに解説してもらう**ローカルMCPサーバーです。対象はWikipediaだけで、一般Webサイトは巡回しません。
+**Wikipediaで思いがけない記事を発見し、接続先のAIに解説してもらう**ことを中心にしたローカルMCPサーバーです。一般Webサイトは検索・収集しません。
 
-`wiki_discover({})` は日本語Wikipediaからランダムに1記事を取得します。記事のURL・版情報・抜粋を返し、接続先のAI向けの解説手順を付けます。解説そのものはMCP単体では生成されません。従来の `wiki_skill` は任意の発想支援機能として残します。**サーバー自身がLLMで推論するわけではありません。** 原理の抽出・転用・評価は接続先のAIが行います。
+`wiki_discover` は引数なしで実行できます。日本語Wikipediaからランダムな1記事を返し、記事本文と命令を分離した「AIへの解説指示」を提供します。
+
+**重要：MCPサーバー自体にLLMはありません。** `explanation_status: requires_client_ai` は「AIの説明はまだ未生成」という意味です。接続先AIが `article` と `explanation_prompt` を読んで解説します。記事の導入部をAI生成の説明と偽って表示しないでください。
+
+以前の `wiki_skill` は異分野知識を設計課題へ転用する追加機能として残します。
 
 ## 範囲
 
 | ツール | 主な入力 | 戻り値 |
 |---|---|---|
-| **`wiki_discover`** | `language`（省略可） | ランダム記事1件、URL・版情報・AI向け解説手順（AI解説は未生成） |
+| **`wiki_discover`** | `language`（省略可） | 日本語または英語Wikipediaのランダム1記事、記事URL・版情報・AI向け解説指示 |
 | `wiki_search` | `query`, `language`, `limit` | 検索結果・短い抜粋・出典URL |
 | `wiki_read` | `title`, `language` | 導入部・記事ID・リビジョン情報 |
 | `wiki_random` | `language`, `count` | 全分野からのランダム記事、取得件数と充足状況 |
@@ -20,15 +24,36 @@
 
 `mode` は `analogy`（類推）、`constraint`（制約）、`critique`（批評）。既定の `surprise` はこの3種類から1つ選びます。`wiki_skill` に `titles` を1〜4件指定するとランダム選択に代わって指定記事を取得します。
 
-## まず使ってみる
+## 最短の使い方：ランダムな記事を解説する
 
-MCPクライアントに登録したら次のように依頼します。
+MCPクライアント接続後、次のように指示してください。
 
-> wiki_discoverを引数なしで呼び出し、articleとexplanation_promptを参考に初心者向けに説明してください。記事の事実と推測を分離し、WikipediaのURLと版情報を示してください。「次の記事」と言ったら再びwiki_discoverを呼び出してください。
+> `wiki_discover` を引数なしで呼び出し、返された `article` と `explanation_prompt` に従って記事を日本語で解説してください。記事のURLと版情報を示し、事実と推測を分離してください。次の記事に進むときは `wiki_discover` をもう一度呼び出してください。
 
-返却される `explanation_status: requires_client_ai` は、**説明文がまだ生成されていない**という意味です。記事本文は指示と分離された非信頼データです。新しい抽選で同じ記事が再び出ることもあります。
+`wiki_discover({})` の主な戻り値：
 
-公開サイトはGitHubとは別管理のため、この更新で自動的に公開サイトが変わるわけではありません。サイト側の変更要件は [記事発見サイト統合ガイド](docs/SITE_DISCOVERY.md) を参照してください。
+- `article.title`, `article.extract`, `article.url`, `article.permalink`, `article.revision_id`, `article.fetched_at`
+- `explanation_prompt`: 接続先AI向けの固定した日本語/英語の解説手順。記事本文は含みません。
+- `explanation_status: requires_client_ai`: このMCP単体では説明文がまだ生成されていないことを明示。
+- `source_trust: untrusted_reference`, `snapshot_sha256`: 信頼境界と返却データ照合情報。
+
+毎回の `wiki_discover` 呼び出しはランダム取得をやり直します。ただし**同じ記事が再び出る可能性があります**。WikipediaのランダムAPIによる選択であり、厳密な一様性は保証しません。
+
+既存の一般向けサイトは別リポジトリ/サイト制作環境で管理されており、**このGitHubの変更だけでは公開サイトは更新されません**。サイトで自動発見と解説を提供するための契約・安全条件は [サイト統合ガイド](docs/SITE_DISCOVERY.md) を参照してください。
+
+
+## 誰でも使える公開サイト（参考実装）
+
+`site/` に、**認証不要**のランダム記事発見LP、5つの公開読み取りツール、WebMCP登録、明示的な状態機械を実装しています。通常のローカルMCP（stdio）は引き続き使用できます。サイト内でAI解説を捏造せず、接続先AIに解説指示を渡します。
+
+```bash
+export WIKIMEDIA_CONTACT="https://github.com/Unjuno/Wiki-spark-mcp/issues"
+npm run site:start
+```
+
+ローカルアクセス先は http://127.0.0.1:3100 です。**GitHubの更新は、別管理の `chatgpt.site` 本番サイトを自動更新しません。** 公開サイトへの反映はSites側で別途実行・検証が必要です。
+
+独立した読み取りAPIは単一プロセスの匿名レート制限を持ちます。複数Workerに横断するクォータではありません。高負荷の本番環境でスケールする前に共有原子的レート制限を追加してください。仕様は [site/README.md](site/README.md)、[状態機械](docs/STATE_MACHINE.md)、[サイトアーキテクチャ](docs/SITE_ARCHITECTURE.md) を参照してください。
 
 ## 導入
 

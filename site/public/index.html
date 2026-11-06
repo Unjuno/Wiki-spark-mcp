@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f2eb">
+  <title>WikiSpark — 知らない世界を、ひとつ。</title>
+  <meta name="description" content="Wikipediaから偶然の記事をひとつ。出典付きの知識とAIへの解説指示を届ける、オープンソースのMCP。登録なしで試せます。">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="WikiSpark — 知らない世界を、ひとつ。">
+  <meta property="og:description" content="Wikipediaの偶然の一記事を、あなたのAIへ。Open-source MCP.">
+  <link rel="canonical" href="https://wikispark-official.unjuno.chatgpt.site/">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/main.js"></script>
+</head>
+<body id="top">
+  <a class="skip" href="#discover">本文へ移動</a>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="WikiSpark ホーム"><span class="brand-symbol" aria-hidden="true">✳</span>Wiki<span>Spark</span></a>
+    <nav aria-label="メインナビゲーション" class="top-nav">
+      <a href="#discover">DISCOVER</a><a href="#how">HOW IT WORKS</a><a href="#tools">TOOLS</a><a href="#install">GET STARTED</a>
+    </nav>
+    <a class="header-github" href="https://github.com/Unjuno/Wiki-spark-mcp" target="_blank" rel="noopener noreferrer">GITHUB <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-content">
+        <div class="eyebrow"><span class="signal" aria-hidden="true"></span> AN OPEN WINDOW INTO WIKIPEDIA <span class="hero-index">001—∞</span></div>
+        <h1 id="hero-title">知らない世界を、<br><em>ひとつ<span class="hero-dot">。</span></em></h1>
+        <p class="hero-lead">偶然の一記事から、知的好奇心が動き出す。<br>Wikipediaの知識を、あなたのAIへ。</p>
+        <div class="hero-actions">
+          <button type="button" class="primary-cta" id="hero-discover"><span class="cta-spark" aria-hidden="true">✳</span> ランダムに発見する <span aria-hidden="true">↗</span></button>
+          <a class="link-arrow" href="#install">MCPとして使う <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="hero-foot">NO ACCOUNT REQUIRED <span aria-hidden="true">/</span> WIKIPEDIA ONLY <span aria-hidden="true">/</span> OPEN SOURCE</div>
+      </div>
+      <div class="hero-art" aria-label="偶然の発見を表現した装飾グラフィック">
+        <div class="art-topline"><span>FIG. 01 — UNEXPECTED KNOWLEDGE</span><span>WIKISPARK / 2026</span></div>
+        <canvas id="orbit-canvas" aria-hidden="true"></canvas>
+        <div class="art-inside-number" aria-hidden="true">?</div>
+        <div class="art-bottomline"><span>RANDOM / WIKIPEDIA</span><span>DISCOVER SOMETHING ELSE ↗</span></div>
+        <div class="art-native">
+          <canvas id="native-canvas" content="drawable" layoutsubtree aria-hidden="true"><span id="native-symbol" drawable>✳</span></canvas>
+          <span id="native-fallback" aria-hidden="true">✳</span>
+        </div>
+      </div>
+      <div class="hero-bottom"><span>SCROLL TO EXPLORE</span><span aria-hidden="true">↓</span></div>
+    </section>
+
+    <section class="discover-section" id="discover" aria-labelledby="discover-title">
+      <div class="section-inner">
+        <p class="section-mark"><span class="round-index">01</span> THE DISCOVERY MACHINE</p>
+        <div class="discover-intro">
+          <h2 id="discover-title">まだ知らない記事に、<br><span>出会う。</span></h2>
+          <p>登録もログインも不要。Wikipediaのどこかにある、まだ見たことのない一記事を引いてみてください。</p>
+        </div>
+        <div class="discover-grid">
+          <div class="discover-controls">
+            <div class="controls-top"><span>DISCOVERY / SETTINGS</span><span>01 / 01</span></div>
+            <fieldset class="language-switch">
+              <legend>記事の言語</legend>
+              <div class="lang-buttons">
+                <button type="button" id="language-ja" aria-pressed="true">日本語</button>
+                <button type="button" id="language-en" aria-pressed="false">English</button>
+              </div>
+            </fieldset>
+            <p class="controls-note">記事はWikipediaからランダムに選ばれます。特定の分野を優先しません。同じ記事が再び出る場合もあります。</p>
+            <button type="button" class="big-action" id="discover-button">ランダムに発見する ↗</button>
+            <div class="keynote"><span class="keynote-star" aria-hidden="true">✳</span> EVERY ARTICLE IS A NEW DOOR.</div>
+            <div class="source-promise"><span class="signal" aria-hidden="true"></span> REAL WIKIPEDIA DATA, NEVER A FAKE RESULT.</div>
+          </div>
+          <div class="article-card" id="discover-card" aria-busy="false">
+            <div class="article-card-top"><span>WIKIPEDIA / LIVE ARTICLE</span><span id="discover-status" data-state="idle">READY / DISCOVER</span></div>
+            <div id="article-empty" class="empty-article">
+              <p class="empty-kicker">NOTHING IS SCHEDULED.</p>
+              <p class="empty-big">次の知識は、<br>まだ決まっていない。</p>
+              <p>偶然に任せて、ひとつ選んでみましょう。</p>
+            </div>
+            <div id="article-loading" class="loading-article" hidden>
+              <span class="loading-ring" aria-hidden="true"></span>
+              <p>Wikipediaを探索しています。</p><span>THE UNEXPECTED IS LOADING</span>
+            </div>
+            <div id="article-result" class="article-result" hidden>
+              <p class="article-kicker" id="article-language">日本語 / WIKIPEDIA</p>
+              <h3 id="article-title"></h3>
+              <p id="article-extract" class="article-extract"></p>
+              <div class="article-provenance"><span id="article-revision"></span><span>WIKIPEDIA CONTRIBUTORS</span></div>
+              <div class="article-links">
+                <a id="article-link" href="https://ja.wikipedia.org/" target="_blank" rel="noopener noreferrer">Wikipediaで読む ↗</a>
+                <a id="revision-link" href="https://ja.wikipedia.org/" target="_blank" rel="noopener noreferrer">固定版を見る ↗</a>
+              </div>
+              <div class="ai-context">
+                <p class="ai-context-heading"><span aria-hidden="true">↗</span> CONNECT TO YOUR AI</p>
+                <p id="article-description">記事の抜粋と出典を取得しました。AIによる解説は接続先のAIに依頼してください。</p>
+                <button type="button" id="copy-explanation" data-original="AIへの解説指示をコピー ↗">AIへの解説指示をコピー ↗</button>
+              </div>
+            </div>
+            <p id="discover-error" class="error-message" role="alert" hidden></p>
+            <div class="article-bottom"><span>OPEN KNOWLEDGE / 2026</span><span>01 / ∞</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="how-section section-inner" id="how" aria-labelledby="how-title">
+      <p class="section-mark"><span class="round-index dark-index">02</span> HOW IT WORKS</p>
+      <div class="how-head"><h2 id="how-title">偶然を、<br>知識に変える。</h2><p>WikiSparkはAIの代わりに考えません。出典のある知識を取得し、AIが説明するための構造を渡します。</p></div>
+      <div class="steps">
+        <article class="step"><div class="step-number">01 <span>↗</span></div><h3>DISCOVER <small>見つける</small></h3><p>Wikipediaから予想外の一記事を取得。ランダムな発見を、ひとつの入口に。</p></article>
+        <article class="step"><div class="step-number">02 <span>↗</span></div><h3>REFERENCE <small>確かめる</small></h3><p>記事の概要、URL、版情報をまとめます。出典をたどって自分で確かめられます。</p></article>
+        <article class="step"><div class="step-number">03 <span>↗</span></div><h3>CONNECT <small>AIにつなぐ</small></h3><p>AI向けの解説指示を返します。解説そのものは接続先AIが生成します。</p></article>
+      </div>
+    </section>
+
+    <section class="tools-section" id="tools" aria-labelledby="tools-title">
+      <div class="section-inner">
+        <div class="tools-head"><div><p class="section-mark"><span class="round-index dark-index">03</span> FIVE TOOLS, ONE IDEA</p><h2 id="tools-title">知識は、<br><em>ツールになる。</em></h2></div><p>主役はサイトではなく、MCP。AIのワークフローへ、Wikipediaの知識を届けます。</p></div>
+        <div class="tool-table" role="list">
+          <div class="tool-feature" role="listitem"><span class="tool-number">01 / PRIMARY</span><code>wiki_discover</code><span>偶然のWikipedia記事とAI解説用コンテキスト</span><span aria-hidden="true">↗</span></div>
+          <div class="tool-item" role="listitem"><span>02</span><code>wiki_random</code><span>1〜4記事のランダム抽出</span><span aria-hidden="true">↗</span></div>
+          <div class="tool-item" role="listitem"><span>03</span><code>wiki_read</code><span>記事の導入部・版情報を取得</span><span aria-hidden="true">↗</span></div>
+          <div class="tool-item" role="listitem"><span>04</span><code>wiki_search</code><span>Wikipediaをキーワード検索</span><span aria-hidden="true">↗</span></div>
+          <div class="tool-item" role="listitem"><span>05</span><code>wiki_skill</code><span>異分野知識から一時スキルを構成</span><span aria-hidden="true">↗</span></div>
+        </div>
+        <details class="advanced"><summary>ADVANCED / 思考スキルの生成 <span aria-hidden="true">↗</span></summary>
+          <div class="advanced-body">
+            <p>任意の課題にWikipediaの視点を加えます。これはAIの改善案ではなく、接続先AI向けの作業指示です。</p>
+            <form id="advanced-form">
+              <label for="advanced-task">対象課題</label>
+              <textarea id="advanced-task" name="task" maxlength="1200" required rows="3" placeholder="例：新しいアイデアを考える"></textarea>
+              <div class="advanced-row"><label>記事の言語<select name="language"><option value="ja">日本語</option><option value="en">English</option></select></label>
+                <label>記事数<select name="count"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option></select></label>
+                <label>モード<select name="mode"><option value="surprise">surprise</option><option value="analogy">analogy</option><option value="constraint">constraint</option><option value="critique">critique</option></select></label></div>
+              <button type="submit" id="advanced-submit" class="primary-cta">思考スキルを生成 ↗</button>
+              <p id="advanced-status" role="status"></p>
+            </form>
+            <div id="tool-output-wrapper" hidden><div class="code-top">STRUCTURED TOOL RESULT <button type="button" id="tool-output-copy" data-original="コピー">コピー</button></div><pre id="tool-output" class="code-result" tabindex="0"></pre></div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="install-section section-inner" id="install" aria-labelledby="install-title">
+      <p class="section-mark"><span class="round-index dark-index">04</span> BUILT FOR AI / BUILT FOR DEVELOPERS</p>
+      <div class="install-grid"><div><h2 id="install-title">発見を、<br><em>あなたのAIへ。</em></h2><p>Node.jsで動くオープンソースのstdio MCP。モデルAPIキー不要。ローカル環境に導入して、ツールを呼び出してください。</p>
+        <a class="link-arrow" href="https://github.com/Unjuno/Wiki-spark-mcp#導入" target="_blank" rel="noopener noreferrer">導入ドキュメントを見る ↗</a></div>
+        <div class="terminal"><div class="terminal-top"><span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>TERMINAL / INSTALL</span><button type="button" id="copy-config" data-original="COPY ↗">COPY ↗</button></div>
+          <pre id="config-code"><code>git clone https://github.com/Unjuno/Wiki-spark-mcp.git
+cd Wiki-spark-mcp
+npm ci --ignore-scripts
+
+export WIKIMEDIA_CONTACT="https://github.com/Unjuno/Wiki-spark-mcp/issues"
+npm test
+node src/server.mjs</code></pre>
+          <div class="terminal-bottom">MCP VERSION <strong>0.4.0</strong><span>LOCAL STDIO</span></div></div></div>
+    </section>
+  </main>
+  <footer class="footer"><div class="footer-main"><div><a href="#top" class="footer-brand">Wiki<span>Spark</span><span aria-hidden="true">✳</span></a><p>まだ知らない世界へ、何度でも。</p></div>
+    <div class="footer-links"><a href="https://github.com/Unjuno/Wiki-spark-mcp" target="_blank" rel="noopener noreferrer">GITHUB ↗</a><a href="https://github.com/Unjuno/Wiki-spark-mcp/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">SECURITY ↗</a><a href="https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use" target="_blank" rel="noopener noreferrer">WIKIMEDIA TERMS ↗</a></div></div>
+    <div class="footer-bottom"><span>© 2026 WIKISPARK / OPEN SOURCE</span><span id="webmcp-status" aria-live="polite">WEBMCP / CHECKING…</span><span>WIKIPEDIA IS THE SOURCE. NOT THE MODEL.</span></div>
+  </footer>
+  <noscript><div class="noscript">記事のランダム取得にはJavaScriptが必要です。MCPの導入方法は<a href="https://github.com/Unjuno/Wiki-spark-mcp">GitHub</a>で確認できます。</div></noscript>
+</body>
+</html>
