@@ -47,6 +47,10 @@ jobs:
         env:
           WIKIMEDIA_CONTACT: https://github.com/Unjuno/Wiki-spark-mcp/issues
         run: npm run test:live
+      - name: Anonymous HTTP Site to live Wikimedia
+        env:
+          WIKIMEDIA_CONTACT: https://github.com/Unjuno/Wiki-spark-mcp/issues
+        run: npm run test:site-live
       - name: Print live evidence
         if: always()
         run: test ! -f verification/live-smoke.json || cat verification/live-smoke.json

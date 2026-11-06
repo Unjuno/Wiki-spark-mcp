@@ -13,7 +13,8 @@
     "test:unit": "node --test test/wiki.test.mjs test/hardening.test.mjs",
     "test:protocol": "node --test test/mcp.test.mjs",
     "test": "node --test test/*.test.mjs site/test/*.test.mjs",
-    "test:live": "node scripts/live-smoke.mjs"
+    "test:live": "node scripts/live-smoke.mjs",
+    "test:site-live": "node scripts/site-live-smoke.mjs"
   },
   "dependencies": { "@modelcontextprotocol/server": "2.4.0", "zod": "^4.2.0" },
   "devDependencies": { "@modelcontextprotocol/client": "2.4.0" },

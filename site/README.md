@@ -27,7 +27,8 @@ The app uses an explicit reducer in `public/machine.js`; old responses cannot ov
 ```sh
 npm run site:check
 npm test
-npm run test:live  # real Wikipedia, only with a real WIKIMEDIA_CONTACT
+npm run test:live       # real stdio MCP → Wikipedia
+npm run test:site-live  # real anonymous site HTTP → Wikipedia
 ```
 
 Browser E2E on the target host should test desktop/mobile layout, actual article selection, next article, English/Japanese, no account, and compatible WebMCP host invocation. This repository and the separately managed `chatgpt.site` project are **not auto-synced**.
