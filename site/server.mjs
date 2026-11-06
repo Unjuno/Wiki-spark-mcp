@@ -87,6 +87,13 @@ export function createWikiSite({ wikipedia, limiter = new SlidingWindowLimiter()
         try {
           const data = await invoke(name, input, { signal: abort.signal });
           return json(res, 200, { ok: true, data });
+        } catch (error) {
+          if (abort.signal.aborted) {
+            const timeoutError = new Error('Site request timed out.');
+            timeoutError.name = 'TimeoutError';
+            throw timeoutError;
+          }
+          throw error;
         } finally { clearTimeout(timeout); lease.release(); }
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405,

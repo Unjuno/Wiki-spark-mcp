@@ -1,17 +1,28 @@
-# Security model
+# WikiSpark security model — stdio MCP + public read-only site
 
-WikiSpark is a local, read-only stdio MCP server. It makes outbound GET requests only to `ja.wikipedia.org` and `en.wikipedia.org`. It does not execute article instructions, write user files, run commands, or include an LLM.
+WikiSpark has two transports with a single Wikipedia operations layer:
 
-## Untrusted input
+1. **Local stdio MCP** in `src/server.mjs`, with five read-only tools and no HTTP listener.
+2. **Anonymous public website / API reference implementation** in `site/`. It serves UI files and five read-only JSON operations. The user does **not** need to create an account or sign in.
 
-All Wikipedia text is untrusted reference data. `wiki_skill` keeps article text in `sources`, outside the generated instruction string, and marks it `source_trust: untrusted_reference`. This is defense in depth, not a prompt-injection guarantee. A consuming AI must not grant article text authority, fetch URLs or execute commands mentioned in it, or let it override the user's constraints. Do not place secrets in task text.
+The site cannot execute arbitrary commands, edit user files or retrieve arbitrary URLs. Outbound Wikipedia calls target only `ja.wikipedia.org` / `en.wikipedia.org`, use GET and reject redirects. No model API keys or LLM are included.
 
-## Network safeguards
+## Trust boundary
 
-The implementation bounds response size, cache entries, retries and request duration. Random selections are not cached. HTTP redirects are rejected. HTTP 429/503 and MediaWiki maxlag respect Retry-After, including HTTP dates. The User-Agent includes the operator's contact; that value is sent to Wikimedia.
+Wikipedia article text is **untrusted reference material**. It is returned separately from fixed explanation instructions with `source_trust: untrusted_reference`. The website renders it as `textContent`, not HTML. This is not a guarantee against prompt-injection attacks on downstream AI systems. Never supply user secrets in tool arguments.
 
-## Limits
+## Anonymous service safeguards
 
-This is not an authenticated remote service. Do not expose it through a public HTTP bridge without adding authentication, per-user quotas, request isolation and an additional security review. Wikipedia facts, revision metadata and hashes do not establish scientific correctness, safe designs or business value. The stored excerpt is the evidence snapshot; a revision ID accompanying an extract is not a guarantee of atomic provenance.
+The Node HTTP implementation validates JSON payload size/content type, input properties and argument bounds; rejects cross-site Origin/Fetch-Site requests; sends a restrictive CSP, frame restrictions and safe response headers; serializes or limits upstream concurrency; and returns bounded errors without stack traces.
 
-Report reproducible defects through the project issue tracker without credentials, private task text or sensitive data. For a sensitive disclosure, use an agreed private channel instead of a public issue.
+`SlidingWindowLimiter` enforces per-address and global request budgets, plus concurrency permits, **within one Node process only**. It does not prove robust multi-worker, IP-rotation-resistant, globally distributed abuse prevention. **Run one replica** and configure hosting-gateway traffic limits, or replace/augment with a shared atomic limiter before scaling. `TRUST_PROXY=1` is permitted only behind a trusted gateway that overwrites `X-Forwarded-For`, with no direct path to the app.
+
+A public endpoint can still be abused or cause traffic charges. A user account would not automatically solve this. Monitor upstream traffic and rate-limit errors. No API has a promise of unlimited anonymous requests.
+
+## Wikimedia and licensing
+
+The operator must configure a genuine `WIKIMEDIA_CONTACT`, transmitted in the User-Agent. Wikimedia's Retry-After, rate limits and maxlag cooldown apply. Articles are not licensed under WikiSpark's MIT license; preserve canonical URLs and contributor/license information and review the relevant article license for redistributed excerpts.
+
+Hashes and revision IDs help trace output but are not evidence of factual correctness or an atomic article/revision snapshot. Source text and revision metadata may come from different points in time.
+
+Report reproducible defects through GitHub issues without secrets or private user text. For sensitive disclosures, use an agreed private channel.
