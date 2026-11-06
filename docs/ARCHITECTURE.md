@@ -1,9 +1,9 @@
-# Architecture
+# WikiSpark architecture
 
-`src/server.mjs` owns the stdio lifecycle. `src/mcp.mjs` registers four read-only tools and returns matching text and structured payloads. `src/wiki.mjs` handles search, excerpt acquisition, bounded random sampling and context assembly. `src/http.mjs` owns the fixed-origin HTTP boundary, pacing, caching, size limits and cooldowns.
+The core `src/operations.mjs` defines exactly five read-only operations shared by two transports: `src/mcp.mjs` exposes them through the official MCP SDK over child-process stdio, while `site/service.mjs` exposes them through the public Node website's same-origin JSON API. `src/wiki.mjs` owns Wikipedia query/rand/extract assembly; `src/discovery.mjs` builds an explainable article handoff; `src/http.mjs` implements fixed destinations, bounded upstream GET calls, pacing, caching, retries and cooldowns.
 
-There is no database, shell execution, embedded LLM or server-side model sampling. The client decides whether and how to use the returned context. The JSON snapshot includes the actual excerpt and a hash; title-based replay fetches current content and is not immutable replay.
+The site is an optional standalone transport and landing page, not a replacement for the local stdio server or a remote HTTP MCP protocol server. It has no database or embedded LLM. Read-only users need no account. See [SITE_ARCHITECTURE.md](SITE_ARCHITECTURE.md) for deployment and security, and [STATE_MACHINE.md](STATE_MACHINE.md) for state transitions, races and fault recovery.
 
-Configuration: `WIKIMEDIA_CONTACT` is required, ASCII-only and at most 200 characters. It is sent to Wikimedia in the User-Agent, not used as an execution target. No arbitrary endpoint configuration is supported.
+The existing public Sites project is managed separately from this GitHub repository. Updating GitHub does not deploy to `chatgpt.site` automatically. A successful CI job proves functionality in the runner, not production browser or WebMCP host compatibility.
 
-Tests use a Node preload only in a child-process test invocation. The production entrypoint never imports the fixture. The live script does not use a preload.
+Test fixtures are only loaded in test subprocesses; normal stdio and site startup do not import them. For live Wikipedia, set the genuine `WIKIMEDIA_CONTACT` in the server environment.

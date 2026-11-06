@@ -96,7 +96,7 @@ node src/server.mjs
 }
 ```
 
-クライアントのPATHにNode.jsがない場合、`command` も実行ファイルの絶対パスにします。WindowsのJSONパスでは `C:/path/...` のようにスラッシュを使えます。**この版はローカルstdio専用です。公開HTTPSエンドポイントやChatGPTへの接続設定は作成していません。**
+クライアントのPATHにNode.jsがない場合、`command` も実行ファイルの絶対パスにします。WindowsのJSONパスでは `C:/path/...` のようにスラッシュを使えます。**MCPプロトコルとしてのこのサーバーはローカルstdio専用です。** 別に用意した `site/` は匿名利用可能なWeb UIとJSON APIであり、Remote MCPのHTTPエンドポイントではありません。
 
 ## 使用例
 

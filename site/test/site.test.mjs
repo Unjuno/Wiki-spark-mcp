@@ -111,6 +111,21 @@ test('API rejects excessive payloads and path traversal', async (t) => {
   assert.equal(traversal.status, 404);
 });
 
+test('timeout is a separate state and always releases the concurrency permit', async (t) => {
+  let aborted = false;
+  const wiki = fakeWiki();
+  wiki.randomArticles = ({ signal }) => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => { aborted = true; reject(new Error('upstream cancelled')); }, { once: true });
+  });
+  const limiter = new SlidingWindowLimiter({ perClient: 10, global: 10 });
+  const base = await serverFixture(t, { wikipedia: wiki, limiter, requestTimeoutMs: 25 });
+  const response = await post(base, 'wiki_discover', {});
+  assert.equal(response.status, 504);
+  assert.equal((await response.json()).error.code, 'UPSTREAM_TIMEOUT');
+  assert.equal(aborted, true);
+  assert.equal(limiter.active, 0);
+});
+
 test('single-instance anonymous rate limits and concurrency are bounded', () => {
   let now = 1000;
   const limiter = new SlidingWindowLimiter({ windowMs: 1000, perClient: 2, global: 3, concurrent: 2,

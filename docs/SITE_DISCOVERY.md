@@ -1,38 +1,33 @@
-# WikiSpark public-site integration — article discovery
+# WikiSpark website integration — updated 2026-11-07
 
-## Goal and scope
+This document is a handoff for a **separate** ChatGPT Sites deployment:
+https://wikispark-official.unjuno.chatgpt.site
 
-The public site at https://wikispark-official.unjuno.chatgpt.site currently prioritizes task-oriented wiki_skill. The requested primary experience is **visit → discover one genuinely random Wikipedia article → read source and excerpt → receive an AI explanation → request the next article**. Wikipedia is the only permitted source.
+**The public Sites URL is not automatically deployed by GitHub commits.** The implementation in `site/` is ready for review and hosting as a standalone Node.js app; Sites must be updated by its own authorized editor.
 
-The public Sites project is managed separately from this GitHub repository. These GitHub changes do not automatically update that site's production deployment.
+## Current primary experience
 
-## API/output contract
+1. An anonymous visit automatically requests exactly **one random Wikipedia article** using the server-side `wiki_discover` operation. JavaScript is required for fetching, but the page's headings and installation docs remain readable without it.
+2. The user sees the actual article title, excerpt, canonical Wikipedia URL, optional revision permalink and source attribution; no fabricated fallback article is shown on errors.
+3. The user can draw another article or change language (`ja` / `en`), with stale responses ignored. Randomness does not guarantee different articles on each draw.
+4. An optional **Copy AI explanation prompt** action sends actual source data to the user's connected AI. The website does not host an LLM or falsely claim an explanation was produced.
+5. An optional Advanced area preserves `wiki_skill` thinking context.
 
-Reuse WikipediaAPI.randomArticles({ language, count: 1 }) plus buildArticleDiscovery(article, { language }), exposed by the local MCP as wiki_discover (default ja).
+## Implementation contract
 
-Return: kind=wikipedia_article_discovery; article title, extract, URL, revision ID, permalink, retrieval timestamp, attribution, license; explanation_status=requires_client_ai; explanation_prompt; source_trust=untrusted_reference; snapshot_sha256.
+Use the source in `site/`, especially `site/public/main.js`, `site/public/machine.js`, and `site/public/webmcp.js`, plus the shared `src/operations.mjs`. Do not rebuild an incompatible second implementation if the hosted Sites project can import the same modules.
 
-The excerpt is **Wikipedia's text, not AI-generated**. To generate an explanation on the website, integrate a separately authorized server-side model with explicit cost controls, abuse protection and tool-data isolation. Otherwise show the excerpt and a “Copy AI explanation prompt” button, clearly indicating that AI explanation is not available.
+Anonymous API tools: `wiki_discover`, `wiki_random`, `wiki_read`, `wiki_search`, `wiki_skill`. The API has strict schemas, same-origin checks and per-process rate limits. **No login required for read-only public operations**. Never remove authentication from future unrelated administration or billing actions.
 
-## UX acceptance
+WebMCP must be verified in three distinct phases: JS tool registration; host discovery; actual execution. The five Site tool registrations in code do not establish host availability by themselves. Work/Codex capability depends on the host configuration.
 
-1. Primary CTA is **ランダムな記事を発見**, not a task-entry form.
-2. Authenticated visit triggers one random article lookup once (guard against duplicate requests on rerender). Anonymous visits show sign-in and optionally clearly marked samples.
-3. Show title, excerpt, article URL, permalink/revision, date, attribution and license.
-4. Only label text as an **AI explanation** after a real model call succeeds. Explain the difference between sourced facts and interpretations.
-5. **次の記事へ** triggers another fresh request, with loading and error states, bounded rates, and no promise that each draw is unique.
-6. Keep wiki_skill in an optional advanced “アイデアに転用” section.
-7. If WebMCP is available, register wiki_discover as a fifth site tool. Do not claim actual host discoverability unless an eligible Work/Codex environment lists and calls it. The previously reported Work browser lacked webmcp_list_tools.
+For production security, use a single persistent Node process plus gateway traffic limits, or add an atomic shared limiter before scaling to multiple workers. Wikimedia requires an identifying User-Agent. See [SITE_ARCHITECTURE.md](SITE_ARCHITECTURE.md), [STATE_MACHINE.md](STATE_MACHINE.md), and [SECURITY.md](../SECURITY.md).
 
-## Security/verification
+## Evidence required for production completion
 
-Authenticate, validate and rate-limit at the server. Existing per-worker memory limits do not enforce a global quota. Escape content and never execute Wikipedia article instructions. Only allow ja.wikipedia.org and en.wikipedia.org API access, no HTTP redirects. Keep keys server-side and avoid unlimited model calls.
-
-Independent PASS gates:
-- Local MCP SDK/stdio calls wiki_discover with real Wikipedia data.
-- Authenticated production site displays genuinely live data; Next refreshes it.
-- AI explanation comes from a real model, or the interface accurately says no AI is connected.
-- Compatible WebMCP host enumerates and calls wiki_discover; DOM form clicks do not count.
-- Anonymous API access is blocked and security/error handling tests pass.
-
-Document each outcome with reproducible logs and do not conflate local CI with production Sites verification.
+- Anonymous request from the **deployed** public URL returns a real Wikipedia article and provenance.
+- Next and English language selection work from browser UI without account creation.
+- Error and rate-limited states are visible; no dummy data is substituted.
+- Site tool invocation is proven in a supported WebMCP host, not by form clicking alone.
+- Source code and deployment SHA/ID are recorded. Desktop/mobile screenshots and keyboard/motion tests are captured on the **deployed** build.
+- No model-generated explanation is claimed unless a separate real LLM integration is installed and independently verified.
