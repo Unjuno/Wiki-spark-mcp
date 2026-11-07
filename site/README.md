@@ -20,7 +20,7 @@ The server accepts anonymous users. No login, account, database or LLM key is re
 
 ## UI
 
-The app uses an explicit reducer in `public/machine.js`; old responses cannot overwrite a newly selected language. Canvas is decorative, `prefers-reduced-motion` safe, and optional native HTML-in-Canvas feature detection never gates controls. No guessed links or article excerpts are rendered. The WebMCP adapter progressively registers five site tools in supported browsers. An unsupported browser has a working manual interface.
+The app uses an explicit reducer in `public/machine.js`; old responses cannot overwrite a newly selected language. Canvas is decorative, `prefers-reduced-motion` safe, and optional native HTML-in-Canvas feature detection never gates controls. No guessed links or article excerpts are rendered. The WebMCP adapter progressively registers five site tools in supported browsers, marks third-party content as untrusted, forwards cancellation signals, and returns sanitized structured errors. An omitted WebMCP language defaults to Japanese (not the mutable current UI language). The copyable AI handoff is cleared during loading, failures and language changes, so an earlier article cannot be accidentally reused. An unsupported browser has a working manual interface.
 
 ## Verify
 

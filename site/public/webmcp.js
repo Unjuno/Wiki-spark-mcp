@@ -4,7 +4,7 @@ const Count = { type: 'integer', minimum: 1, maximum: 4, default: 3 };
 const Rules = { type: 'array', maxItems: 8, items: { type: 'string', minLength: 1, maxLength: 200 } };
 const parameter = (properties, required = []) => ({ type: 'object', properties,
   required, additionalProperties: false });
-const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: true };
+const readOnly = { readOnlyHint: true, untrustedContentHint: true };
 
 export const SITE_TOOLS = Object.freeze([
   { name: 'wiki_discover', description: 'Discover one truly random Japanese or English Wikipedia article and receive its source and AI explanation handoff. The website itself does not run an LLM.',
@@ -23,6 +23,16 @@ export const SITE_TOOLS = Object.freeze([
       requirements: Rules, avoid: Rules }, ['task']) }
 ]);
 
+const ERROR_MESSAGES = Object.freeze({
+  INVALID_INPUT: 'Invalid tool arguments. Check the input schema.',
+  RATE_LIMITED: 'Anonymous rate limit reached. Retry later.',
+  BUSY: 'Too many concurrent requests. Retry shortly.',
+  UPSTREAM_TIMEOUT: 'Wikipedia request timed out. Retry later.',
+  WIKIPEDIA_UNAVAILABLE: 'Wikipedia is temporarily unavailable.',
+  ORIGIN_DENIED: 'Run WikiSpark tools from the official site.',
+  TOOL_CANCELLED: 'The browser agent cancelled the tool call.'
+});
+
 export async function registerSiteTools({ invoke, onStatus = () => {} }) {
   if (typeof document.modelContext?.registerTool !== 'function') {
     onStatus('unsupported', 0);
@@ -33,7 +43,14 @@ export async function registerSiteTools({ invoke, onStatus = () => {} }) {
     try {
       await document.modelContext.registerTool({
         ...entry, annotations: readOnly,
-        execute: async (args = {}) => invoke(entry.name, args)
+        execute: async (args = {}, options = {}) => {
+          try { return await invoke(entry.name, args, options); }
+          catch (error) {
+            const code = options.signal?.aborted ? 'TOOL_CANCELLED' :
+              (typeof error?.code === 'string' && Object.hasOwn(ERROR_MESSAGES, error.code) ? error.code : 'TOOL_FAILED');
+            return { ok: false, error: { code, message: ERROR_MESSAGES[code] ?? 'WikiSpark could not complete the tool request.' } };
+          }
+        }
       });
       registered++;
     } catch (error) {

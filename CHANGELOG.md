@@ -1,5 +1,12 @@
 # Changelog
 
+## WebMCP correctness follow-up — 2026-11-08
+
+- Bind AI handoff copying to the current successful discovery state and prevent stale copied article content after another request or language change.
+- Forward WebMCP cancellation to the fetch and return sanitized structured tool errors rather than opaque callback failures.
+- Set WebMCP `untrustedContentHint` for Wikipedia excerpts and align omitted discovery language with the MCP default (`ja`).
+- Add site regression tests for provenance copying, tool metadata, cancellation options and error behavior.
+
 ## Site overhaul — 2026-11-07 (MCP remains v0.4.0)
 
 - Add a discovery-first public landing page with Canvas visual, semantic HTML fallback and anonymous Wikipedia browsing.

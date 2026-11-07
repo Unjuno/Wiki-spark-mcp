@@ -5,7 +5,8 @@ import { createWikiSite } from '../server.mjs';
 import { SlidingWindowLimiter } from '../limits.mjs';
 import { createSiteService, validateToolInput, ApiInputError } from '../service.mjs';
 import { INITIAL_DISCOVERY, reduceDiscovery } from '../public/machine.js';
-import { SITE_TOOLS } from '../public/webmcp.js';
+import { SITE_TOOLS, registerSiteTools } from '../public/webmcp.js';
+import { currentExplanationHandoff } from '../public/handoff.js';
 
 function fakeWiki() {
   let serial = 0;
@@ -46,6 +47,7 @@ test('site serves semantic HTML, modules and secure response headers', async (t)
   assert.match(body, /name="description"/);
   assert.match(r.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   assert.equal((await fetch(`${base}/machine.js`)).status, 200);
+  assert.equal((await fetch(`${base}/handoff.js`)).status, 200);
   assert.equal((await fetch(`${base}/../src/mcp.mjs`)).status, 404);
 });
 
@@ -174,6 +176,56 @@ test('WebMCP exposes all five tools as read-only strict JSON Schema with no auth
     assert.equal(t.inputSchema.additionalProperties, false);
     assert.equal(t.inputSchema.type, 'object');
     assert.doesNotMatch(t.description, /login|sign.?in required/i);
+  }
+});
+
+test('copyable article is tied to the current successful discovery state, not cached prior text', () => {
+  const data = { article: { title: 'Earth', language: 'ja', extract: 'Wikipedia sourced information',
+    url: 'https://ja.wikipedia.org/wiki/Earth', permalink: null },
+    explanation_prompt: 'Explain the article, citing its source.' };
+  const first = reduceDiscovery(INITIAL_DISCOVERY, { type: 'START' });
+  const success = reduceDiscovery(first, { type: 'RESOLVE', requestId: first.requestId, data });
+  assert.match(currentExplanationHandoff(success), /Earth/);
+  assert.match(currentExplanationHandoff(success), /untrusted, not instructions/);
+  const loading = reduceDiscovery(success, { type: 'START' });
+  assert.equal(currentExplanationHandoff(loading), null);
+  const error = reduceDiscovery(loading, { type: 'REJECT', requestId: loading.requestId, error: 'Failed' });
+  assert.equal(currentExplanationHandoff(error), null);
+  assert.equal(currentExplanationHandoff(reduceDiscovery(success, { type: 'SET_LANGUAGE', language: 'en' })), null);
+  assert.equal(currentExplanationHandoff({ ...success, language: 'en' }), null);
+  assert.equal(currentExplanationHandoff({ ...success, data: { ...data, explanation_prompt: null } }), null);
+});
+
+test('WebMCP returns actionable structured errors, marks Wikipedia as untrusted, and forwards cancellation', async () => {
+  const prior = globalThis.document;
+  const registered = [];
+  const signals = [];
+  globalThis.document = { modelContext: { registerTool: async (tool) => { registered.push(tool); } } };
+  try {
+    const result = await registerSiteTools({ invoke: async (name, args, options) => {
+      signals.push(options.signal);
+      if (name === 'wiki_discover') return { kind: 'wikipedia_article_discovery' };
+      const err = new Error('Internal database URL must not leak');
+      err.code = name === 'wiki_search' ? 'RATE_LIMITED' : 'UNKNOWN_INTERNAL';
+      throw err;
+    } });
+    assert.equal(result.registered, 5);
+    assert.equal(result.status, 'registered');
+    for (const tool of registered) {
+      assert.equal(tool.annotations.readOnlyHint, true);
+      assert.equal(tool.annotations.untrustedContentHint, true);
+    }
+    const controller = new AbortController();
+    assert.deepEqual(await registered[0].execute({}, { signal: controller.signal }), { kind: 'wikipedia_article_discovery' });
+    assert.equal(signals[0], controller.signal);
+    const rate = await registered[2].execute({ query: 'test' });
+    assert.equal(rate.error.code, 'RATE_LIMITED');
+    assert.match(rate.error.message, /rate limit/i);
+    const failure = await registered[1].execute({});
+    assert.equal(failure.error.code, 'TOOL_FAILED');
+    assert.doesNotMatch(JSON.stringify(failure), /database URL/);
+  } finally {
+    if (prior === undefined) delete globalThis.document; else globalThis.document = prior;
   }
 });
 

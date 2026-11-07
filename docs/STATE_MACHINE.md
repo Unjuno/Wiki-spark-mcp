@@ -15,7 +15,7 @@ State: `status ∈ {idle, loading, success, error}`, `language ∈ {ja,en}`, mon
 | any | stale `RESOLVE` / `REJECT` | id differs | unchanged | None; discard stale response |
 | any | `CANCEL` | always | idle; increment request ID | Abort previous HTTP and clear transient output |
 
-Invariants: **(I1)** at most one current discovery operation per page, **(I2)** stale network results cannot overwrite newer language or article, **(I3)** loading and error never appear as successful live results, **(I4)** all successful articles come through the same validated server operation, **(I5)** a WebMCP `wiki_discover` call updates the same article view.
+Invariants: **(I1)** at most one current discovery operation per page, **(I2)** stale network results cannot overwrite newer language or article, **(I3)** loading and error never appear as successful live results, **(I4)** all successful articles come through the same validated server operation, **(I5)** a WebMCP `wiki_discover` call updates the same article view, **(I6)** the copyable AI handoff exists only when the current visible discovery is successful and its article language matches the selected language.
 
 An API request may be aborted after the server starts work; the server's bounded queue and rate limiter still apply. Aborted upstream work does not prove that zero Wikimedia requests occurred.
 
@@ -38,7 +38,7 @@ The `SlidingWindowLimiter` is memory-bounded and **per Node.js process**. This i
 
 ## 3. WebMCP lifecycle (orthogonal to request status)
 
-`checking → unsupported` when the browser does not expose `document.modelContext.registerTool`, or `checking → registered(5)` after five registrations resolve, or `checking → error(n)` after any registration exception. Registration success does **not** prove a specific AI host discovered or invoked the tool. Native browser support varies. All five tools route through the same site service, and `wiki_discover` updates the same reducer as the direct user action.
+`checking → unsupported` when the browser does not expose `document.modelContext.registerTool`, or `checking → registered(5)` after five registrations resolve, or `checking → error(n)` after any registration exception. Registration success does **not** prove a specific AI host discovered or invoked the tool. Native browser support varies. All five tools route through the same site service, and `wiki_discover` updates the same reducer as the direct user action. Optional WebMCP cancellation signals are forwarded to fetch; errors are returned as structured, sanitized error objects because thrown callback messages are not reliably visible to agents. The WebMCP adapter declares `untrustedContentHint: true` for third-party Wikipedia content. An omitted `language` in `wiki_discover` always defaults to `ja`, matching the server tool contract, rather than inheriting a mutable UI selection.
 
 ## 4. Rendering lifecycle (orthogonal to requests)
 
@@ -50,7 +50,7 @@ The server does not call an LLM. `wiki_discover` returns `explanation_status='re
 
 ## 6. Test cases and traceability
 
-- `site/test/site.test.mjs`: 10 focused tests for anonymous API, CSP, same-origin, schema, bounded requests, front-end race reducer, WebMCP metadata and provenance.
+- `site/test/site.test.mjs`: 13 focused tests for anonymous API, CSP, same-origin, schema, bounded requests, front-end race reducer, WebMCP metadata and provenance.
 - `test/mcp.test.mjs`: real SDK child-process stdio regression suite, before/after shared operations refactor.
 - `scripts/live-smoke.mjs`: real Wikimedia API requests (requires CI/network and `WIKIMEDIA_CONTACT`).
 - A supported ChatGPT Work/Codex **site tools host** must be used to claim WebMCP discovery. An ordinary browser with a mocked `document.modelContext` can verify registration wiring but **not** host support.

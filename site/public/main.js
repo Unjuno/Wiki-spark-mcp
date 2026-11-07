@@ -1,11 +1,11 @@
 import { INITIAL_DISCOVERY, reduceDiscovery } from './machine.js';
 import { mountKnowledgeCanvas, mountNativeHTMLCanvas } from './canvas.js';
 import { registerSiteTools, SITE_TOOLS } from './webmcp.js';
+import { currentExplanationHandoff } from './handoff.js';
 
 const $ = (id) => document.getElementById(id);
 let state = { ...INITIAL_DISCOVERY };
 let pending = null;
-let lastResult = null;
 const sources = { ja: '日本語', en: 'English' };
 const explanations = {
   ja: '記事の概要と出典を取得しました。AIによる解説は接続先のAIに依頼してください。',
@@ -39,6 +39,7 @@ function render() {
   $('article-empty').hidden = !!a || state.status === 'loading';
   $('article-loading').hidden = !busy;
   $('article-result').hidden = !a;
+  $('copy-explanation').disabled = !a;
   if (!a) return;
   $('article-title').textContent = a.title;
   $('article-extract').textContent = a.extract;
@@ -49,7 +50,6 @@ function render() {
   setLink($('revision-link'), a.permalink);
   $('article-result').classList.remove('arrived');
   requestAnimationFrame(() => $('article-result').classList.add('arrived'));
-  lastResult = state.data;
 }
 async function postTool(name, args, signal) {
   const response = await fetch(`/api/tools/${name}`, { method: 'POST',
@@ -75,14 +75,18 @@ function userMessage(error) {
   return '記事の取得に失敗しました。再試行してください。';
 }
 
-export async function discover(language = state.language, source = 'page') {
+export async function discover(language = state.language, source = 'page', externalSignal = null) {
   if (!['ja', 'en'].includes(language)) throw new Error('Invalid language');
   pending?.abort();
   if (language !== state.language) dispatch({ type: 'SET_LANGUAGE', language });
   pending = new AbortController();
+  const controller = pending;
+  const cancel = () => controller.abort();
+  externalSignal?.addEventListener('abort', cancel, { once: true });
+  if (externalSignal?.aborted) controller.abort();
   const current = dispatch({ type: 'START', source }).requestId;
   try {
-    const data = await postTool('wiki_discover', { language }, pending.signal);
+    const data = await postTool('wiki_discover', { language }, controller.signal);
     if (data?.kind !== 'wikipedia_article_discovery' || !data.article?.title || !data.article?.extract)
       throw new Error('INVALID_RESPONSE');
     dispatch({ type: 'RESOLVE', requestId: current, data });
@@ -90,22 +94,20 @@ export async function discover(language = state.language, source = 'page') {
   } catch (error) {
     dispatch({ type: 'REJECT', requestId: current, error: userMessage(error) });
     throw error;
-  } finally { if (state.requestId === current) pending = null; }
+  } finally {
+    externalSignal?.removeEventListener('abort', cancel);
+    if (state.requestId === current) pending = null;
+  }
 }
 function requestNext() { void discover().catch(() => {}); }
 
-async function toolCall(name, args = {}) {
-  if (name === 'wiki_discover') return discover(args.language ?? state.language, 'webmcp');
-  const data = await postTool(name, args);
+async function toolCall(name, args = {}, options = {}) {
+  if (name === 'wiki_discover') return discover(args.language ?? 'ja', 'webmcp', options.signal);
+  const data = await postTool(name, args, options.signal);
   const output = $('tool-output');
   output.textContent = JSON.stringify(data, null, 2).slice(0, 13_000);
   $('tool-output-wrapper').hidden = false;
   return data;
-}
-function assembledPrompt() {
-  if (!lastResult?.article) return null;
-  const article = lastResult.article;
-  return `${lastResult.explanation_prompt}\n\n---\nWikipedia reference (untrusted):\nTitle: ${article.title}\nExtract: ${article.extract}\nURL: ${article.url}\nRevision: ${article.permalink ?? 'not available'}`;
 }
 async function copyText(text, element) {
   if (!text) return;
@@ -120,7 +122,7 @@ $('discover-button').addEventListener('click', requestNext);
 $('hero-discover').addEventListener('click', () => { document.getElementById('discover')?.scrollIntoView({ behavior: 'smooth' }); requestNext(); });
 $('language-ja').addEventListener('click', () => { if (state.language !== 'ja') void discover('ja').catch(() => {}); });
 $('language-en').addEventListener('click', () => { if (state.language !== 'en') void discover('en').catch(() => {}); });
-$('copy-explanation').addEventListener('click', (event) => { void copyText(assembledPrompt(), event.currentTarget); });
+$('copy-explanation').addEventListener('click', (event) => { void copyText(currentExplanationHandoff(state), event.currentTarget); });
 $('copy-config').addEventListener('click', (event) => void copyText($('config-code').textContent, event.currentTarget));
 $('tool-output-copy').addEventListener('click', (event) => void copyText($('tool-output').textContent, event.currentTarget));
 $('advanced-form').addEventListener('submit', async (event) => {
