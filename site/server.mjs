@@ -14,6 +14,7 @@ const STATIC = Object.freeze({
   '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
   '/main.js': ['main.js', 'text/javascript; charset=utf-8'],
   '/machine.js': ['machine.js', 'text/javascript; charset=utf-8'],
+  '/handoff.js': ['handoff.js', 'text/javascript; charset=utf-8'],
   '/canvas.js': ['canvas.js', 'text/javascript; charset=utf-8'],
   '/webmcp.js': ['webmcp.js', 'text/javascript; charset=utf-8'],
   '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
